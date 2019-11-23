@@ -10,13 +10,14 @@ For the purpose of keeping this documentation clean and coherant, all the exampl
 
 ### status
 Get the status of the Coinfield API
-```js
+```
 Coinfield.status((status)=>{
   console.log(status);
 });
 ```
 <details>
 <summary>View Response</summary>
+
 ```js
 { status: 'ok' }
 ```
@@ -31,6 +32,7 @@ Coinfield.timestamp((ts)=>{
 ```
 <details>
 <summary>View Response</summary>
+
 ```js
 { timestamp: '2019-11-23T05:35:00.398Z' }
 ```
@@ -52,6 +54,7 @@ Coinfield.currencies("BTC",(currencies)=>{
 ```
 <details>
 <summary>View Response</summary>
+
 ```js
 {
     "currencies": [
@@ -110,6 +113,7 @@ Coinfield.markets("btcxrp",(markets)=>{
 ```
 <details>
 <summary>View Response</summary>
+
 ```js
 { markets:
   [{ id: 'btcxrp',
@@ -158,6 +162,7 @@ Coinfield.tickers("btccad",(tickers)=>{
 ```
 <details>
 <summary>View Response</summary>
+
 ```js
  {
  	"markets": [{
@@ -192,6 +197,7 @@ Coinfield.orderbook("btcxrp", 10, (ob)=>{
 ```
 <details>
 <summary>View Response</summary>
+
 ```js
  { market: 'btcxrp',
   total_asks: 0.21297403,
@@ -232,6 +238,7 @@ Coinfield.depth("btcxrp", 10, (depth)=>{
 ```
 <details>
 <summary>View Response</summary>
+
 ```js
  { market: 'btcxrp',
   bids:
@@ -280,6 +287,7 @@ Coinfield.ohlc("btcxrp", {limit:24,period:60, from: 1574404560 , to: 1574490990 
 ```
 <details>
 <summary>View Response</summary>
+
 ```js
  { market: 'btcxrp',
   ohlc:
@@ -321,6 +329,7 @@ Coinfield.trades("btccad", {limit:24}, (trades)=>{
 ```
 <details>
 <summary>View Response</summary>
+
 ```js
  {
 	"market": "btccad",
