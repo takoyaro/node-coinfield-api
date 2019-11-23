@@ -7,7 +7,7 @@ This project is designed to help you make your own projects that interact with t
 *I would like to point out that this is an unofficial script as Coinfield doesn't provide anything else than their REST and SocketIO API*
 
 ### 📓 Documentation
-In an attempt to keep this Readme short and sweet, you can find a few examples on how to use ***Node Coinfield API*** below but refer to the [documentation](/doc.md) for the **complete** list of calls.
+In an attempt to keep this Readme short and sweet, you can find a few examples on how to use ***Node Coinfield API*** below but refer to the [documentation](/DOCS.md) for the **complete** list of calls.
 
 ### 💻 Installation
 
@@ -496,8 +496,8 @@ At this point in time, only public calls are available but I am planning to impl
 
 #### ☕ Keep a fellow Developer hydrated
 
-![XRP](https://github.com/takoyaro/node-coinfield-api/raw/master/icons/xrp.svg?sanitize=true)XRP: `rptgFJ9E1SFMTSGQfrZWVDM6Pf5P5Ui2uk`
-![XRP](https://github.com/takoyaro/node-coinfield-api/raw/master/icons/eth.svg?sanitize=true)ETH: `0x821d8D60d43229fBFD6fcD5aD97450D1A164547f`
+![XRP](https://github.com/takoyaro/node-coinfield-api/raw/master/icons/xrp.svg?sanitize=true)XRP: `rptgFJ9E1SFMTSGQfrZWVDM6Pf5P5Ui2uk` <br />
+![XRP](https://github.com/takoyaro/node-coinfield-api/raw/master/icons/eth.svg?sanitize=true)ETH: `0x821d8D60d43229fBFD6fcD5aD97450D1A164547f`<br />
 ![BTC](https://github.com/takoyaro/node-coinfield-api/raw/master/icons/btc.svg?sanitize=true)BTC: `17NwZQ86HswwHLEDfBkhu6kZUoUZy4CGSG`
 
 
