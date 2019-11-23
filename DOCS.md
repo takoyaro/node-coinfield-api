@@ -1,14 +1,14 @@
 # Documentation
 
-### 🚶‍♀️ Getting Started  🚶
+## 🚶‍♀️ Getting Started  🚶
 ```js
 const Coinfield = require('node-coinfield-api')();
 ```
 For the purpose of keeping this documentation clean and coherant, all the examples below using the `Coinfield` namespace will refer to the constant variable declared above.
 
-### 📢 Public Calls
+## 📢 Public Calls
 
-#### status
+### status
 Get the status of the Coinfield API
 ```js
 Coinfield.status((status)=>{
@@ -22,7 +22,7 @@ Coinfield.status((status)=>{
 ```
 </details>
 
-#### timestamp
+### timestamp
 Get the timestamp of the server
 ```js
 Coinfield.timestamp((ts)=>{
@@ -36,7 +36,7 @@ Coinfield.timestamp((ts)=>{
 ```
 </details>
 
-#### currencies
+### currencies
 Get a list of all available currencies on the platform
 ###### All currencies
 ```js
@@ -85,7 +85,7 @@ Coinfield.currencies("BTC",(currencies)=>{
 ```
 </details>
 
-#### markets
+### markets
 Get all available markets
 | Parameter | Type | Optional | Description |
 | --- | --- | --- | --- |
@@ -137,7 +137,7 @@ Coinfield.markets("btcxrp",(markets)=>{
 ```
 </details>
 
-#### tickers
+### tickers
 Get tickers for all or a specific market
 | Parameter | Type | Optional | Description |
 | --- | --- | --- | --- |
@@ -177,7 +177,7 @@ Coinfield.tickers("btccad",(tickers)=>{
 ```
 </details>
 
-#### orderbook
+### orderbook
 Get orderbook for a specific market
 
 | Parameter | Type | Optional | Description |
@@ -217,7 +217,7 @@ Coinfield.orderbook("btcxrp", 10, (ob)=>{
 ```
 </details>
 
-#### depth
+### depth
 Get depth for a specific market
 
 | Parameter | Type | Optional | Description |
@@ -261,7 +261,7 @@ Coinfield.depth("btcxrp", 10, (depth)=>{
 ```
 </details>
 
-#### ohlc
+### ohlc
 OHLC (KLine) of a specific market
 
 | Parameter | Type | Optional | Description |
@@ -301,7 +301,7 @@ Coinfield.ohlc("btcxrp", {limit:24,period:60, from: 1574404560 , to: 1574490990 
 ```
 </details>
 
-#### trades
+### trades
 Get trades for a specific market
 
 | Parameter | Type | Optional | Description |
@@ -343,13 +343,13 @@ Coinfield.trades("btccad", {limit:24}, (trades)=>{
 }
 ```
 </details>
-### 🕵️ Private Calls
+## 🕵️ Private Calls
 
 *Work in Progress*
 *ETA: 2019/11/30*
 
 
-### 🔗 Websocket
+## 🔗 Websocket
 
 *Work in Progress*
 *ETA: 2020/01/01*
