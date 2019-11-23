@@ -1,0 +1,25 @@
+{
+  "name": "node-coinfield-api",
+  "version": "0.1.2",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "request": "^2.88.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "coinfield",
+    "api",
+    "crypto",
+    "cryptocurrency",
+    "bitcoin",
+    "altcoin",
+    "trading",
+    "exchange"
+  ],
+  "author": "takoyaro",
+  "license": "MIT"
+}
