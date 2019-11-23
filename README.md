@@ -7,7 +7,7 @@ This project is designed to help you make your own projects that interact with t
 *I would like to point out that this is an unofficial script as Coinfield doesn't provide anything else than their REST and SocketIO API*
 
 ### 📓 Documentation
-In an attempt to keep this Readme short and sweet, you can find a few examples on how to use ***Node Coinfield API*** below but refer to the [documentation](/DOCS.md) for the **complete** list of calls.
+In an attempt to keep this Readme short and sweet, you can find a few examples on how to use ***Node Coinfield API*** below but refer to the [documentation](https://github.com/takoyaro/node-coinfield-api/blob/master/DOCS.md) for the **complete** list of calls.
 
 ### 💻 Installation
 
