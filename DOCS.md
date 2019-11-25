@@ -1,6 +1,36 @@
 # Documentation
 
-## 🚶‍♀️ Getting Started  🚶
+- [Getting Started](#getting-started) 🚶‍♀️ 🚶 
+- [Public Calls](#public-calls) 📢
+	- [status](#status)
+	- [timestamp](#timestamp)
+	- [currencies](#currencies)
+	- [markets](#markets)
+	- [tickers](#tickers)
+	- [orderbook](#orderbook)
+	- [depth](#depth)
+	- [ohlc](#ohlc)
+	- [trades](#trades)
+- [Private Calls](#private-calls) 🕵️
+	- [account](#account)
+	- [wallets](#wallets)
+	- [fees](#fees)
+	- [placeorder](#placeorder)
+	- [getorder](#getorder)
+	- [deleteorder](#deleteorder)
+	- [getorders](#getorders)
+	- [deleteorders](#deleteorders)
+	- [tradehistory](#tradehistory)
+	- [depositaddresses](#depositaddresses)
+	- [deposits](#deposits)
+	- [withdrawaladdresses](#withdrawaladdresses)
+	- [withdrawals](#withdrawals)
+	- [makewithdrawal](#makewithdrawal)
+	- [pricealerts](#pricealerts)
+- [WebSocket](#websocket) 🔗
+
+##  🚶‍♀️ 🚶
+## Getting Started 
 ```js
 const Coinfield = require('node-coinfield-api')({
 APIKEY: //YOUR API KEY HERE - ONLY REQUIRED FOR PRIVATE CALLS
@@ -8,7 +38,8 @@ APIKEY: //YOUR API KEY HERE - ONLY REQUIRED FOR PRIVATE CALLS
 ```
 For the purpose of keeping this documentation clean and coherant, all the examples below using the `Coinfield` namespace will refer to the constant variable declared above.
 
-## 📢 Public Calls
+## 📢
+## Public Calls
 
 ### status
 Get the status of the Coinfield API
@@ -357,7 +388,9 @@ Coinfield.trades("btccad", {limit:24}, (trades)=>{
 }
 ```
 </details>
-## 🕵️ Private Calls
+
+## 🕵️
+## Private Calls
 
 ### account
 Get account details
@@ -1014,7 +1047,9 @@ Coinfield.pricealerts({action:'get'}, (alerts)=>{
 }
 ```
 </details>
-## 🔗 Websocket
+
+## 🔗
+## Websocket
 
 *Work in Progress*
 *ETA: 2020/01/01*
