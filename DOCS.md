@@ -2,7 +2,9 @@
 
 ## 🚶‍♀️ Getting Started  🚶
 ```js
-const Coinfield = require('node-coinfield-api')();
+const Coinfield = require('node-coinfield-api')({
+APIKEY: //YOUR API KEY HERE - ONLY REQUIRED FOR PRIVATE CALLS
+});
 ```
 For the purpose of keeping this documentation clean and coherant, all the examples below using the `Coinfield` namespace will refer to the constant variable declared above.
 
@@ -90,9 +92,11 @@ Coinfield.currencies("BTC",(currencies)=>{
 
 ### markets
 Get all available markets
+
 | Parameter | Type | Optional | Description |
 | --- | --- | --- | --- |
-| market |string/array of strings| yes | If not provided all markets are returned.|
+| market | String/|Array of Strings| yes | If not provided all markets are returned .|
+
 ###### All markets
 ```js
 Coinfield.markets((markets)=>{
@@ -143,9 +147,10 @@ Coinfield.markets("btcxrp",(markets)=>{
 
 ### tickers
 Get tickers for all or a specific market
+
 | Parameter | Type | Optional | Description |
 | --- | --- | --- | --- |
-| market |string| yes |Specify a market pair in the format of "basequote" e.g. btcbch or btcxrp.All available markets can be found at [markets](#markets). <br /> **If not provided all market tickers are returned.**|
+| market |String| yes |Specify a market pair in the format of "basequote" e.g. `btcbch` or `btcxrp`.<br/> See [markets](#markets). <br /> **If not provided all market tickers are returned.**|
 ###### Tickers for all markets
 ```js
 Coinfield.tickers((tickers)=>{
@@ -187,8 +192,8 @@ Get orderbook for a specific market
 
 | Parameter | Type | Optional | Description |
 | --- | --- | --- | --- |
-| market |string|**mandatory** |Specify a market pair in the format of "basequote" e.g. btcbch or btcxrp.All available markets can be found at [markets](#markets). |
-| limit | number | yes| Number of asks and bids array.<br />Default value: `20` |
+| market |String|**mandatory** |Specify a market pair in the format of "basequote" e.g. `btcbch` or `btcxrp`.<br/> See [markets](#markets). |
+| limit | Number | yes| Number of asks and bids array.<br />Default value: `20` |
 
 ```js
 Coinfield.orderbook("btcxrp", 10, (ob)=>{
@@ -228,8 +233,8 @@ Get depth for a specific market
 
 | Parameter | Type | Optional | Description |
 | --- | --- | --- | --- |
-| market |string|**mandatory** |Specify a market pair in the format of "basequote" e.g. btcbch or btcxrp.All available markets can be found at [markets](#markets). |
-| limit | number | yes| Limit the number of returned price levels.<br />Default value: `300` |
+| market |String|**mandatory** |Specify a market pair in the format of "basequote" e.g. `btcbch` or `btcxrp`.<br/> See [markets](#markets). |
+| limit | Number | yes| Limit the number of returned price levels.<br />Default value: `300` |
 
 ```js
 Coinfield.depth("btcxrp", 10, (depth)=>{
@@ -273,12 +278,12 @@ OHLC (KLine) of a specific market
 
 | Parameter | Type | Optional | Description |
 | --- | --- | --- | --- |
-| market |string|**mandatory** |Specify a market pair in the format of "basequote" e.g. btcbch or btcxrp.All available markets can be found at [markets](#markets). |
-| options | object | yes| Optional parameters to be passed, more details below. |
-| options.limit | number | yes| Limit number of candles. <br />Default value: `30` |
-| options.period | number | yes| Candle periods.<br />Valid range: 1, 5, 15, 30, 60, 120, 240, 360, 720, 1440, 4320, 10080 <br /> Default value: `30` |
-| options.from | number | yes| UNIX epoch timestamp of start time |
-| options.to | number | yes| UNIX epoch timestamp of start time |
+| market |String|**mandatory** |Specify a market pair in the format of "basequote" e.g. `btcbch` or `btcxrp`.<br/> See [markets](#markets).|
+| options | Object | yes| Optional parameters to be passed, more details below. |
+| options.limit | Number | yes| Limit number of candles. <br />Default value: `30` |
+| options.period | Number | yes| Candle periods.<br />Valid range: `1`, `5`, `15`, `30`, `60`, `120`, `240`, `360`, `720`, `1440`, `4320`, `10080` <br /> Default value: `30` |
+| options.from | Number | yes| UNIX epoch timestamp of start time |
+| options.to | Number | yes| UNIX epoch timestamp of start time |
 
 ```js
 Coinfield.ohlc("btcxrp", {limit:24,period:60, from: 1574404560 , to: 1574490990 }, (ohlc)=>{
@@ -314,13 +319,13 @@ Get trades for a specific market
 
 | Parameter | Type | Optional | Description |
 | --- | --- | --- | --- |
-| market |string|**mandatory** |Specify a market pair in the format of "basequote" e.g. btcbch or btcxrp.All available markets can be found at [markets](#markets). |
-| options | object | yes| Optional parameters to be passed, more details below. |
-| options.limit | number | yes| Limit number of candles. <br />Default value: `30` |
-| options.timestamp | number | yes| An integer represents the seconds elapsed since Unix epoch. If set, only trades executed before the time will be returned |
-| options.from | number | yes| Trade id. If set, only trades done after the specified trade id will be returned |
-| options.to | number | yes| Trade id. If set, only trades done before the specified trade id will be returned |
-| options.order_by | number | yes| If set, trades will be sorted in specific order (desc, asc) <br/> Default value: `desc` |
+| market |String|**mandatory** |Specify a market pair in the format of "basequote" e.g. `btcbch` or `btcxrp`.<br/> See [markets](#markets). |
+| options | Object | yes| Optional parameters to be passed, more details below. |
+| options.limit | Number | yes| Limit number of candles. <br />Default value: `30` |
+| options.timestamp | Number | yes| An integer represents the seconds elapsed since Unix epoch. If set, only trades executed before the time will be returned |
+| options.from | Number | yes| Trade id. If set, only trades done after the specified trade id will be returned |
+| options.to | Number | yes| Trade id. If set, only trades done before the specified trade id will be returned |
+| options.order_by | Number | yes| If set, trades will be sorted in specific order (desc, asc) <br/> Default value: `desc` |
 
 ```js
 Coinfield.trades("btccad", {limit:24}, (trades)=>{
@@ -485,7 +490,7 @@ Place a new order.
 |Parameter | Type | Optional | Description|
 | ---|---|---|---|
 |`options`| Object | yes | Parameters to be passed, more details below.|
-|`options.market`	|String	|**mandatory**|Market in which to place an order|
+|`options.market`	|String	|**mandatory**|Market in which to place an order.<br/> See [markets](#markets).|
 |`options.type`|	String|**mandatory**|`bid` if you want to create buy order or `ask` if you want to create sell order|
 |`options.strategy`|	String|	**mandatory**|The strategy which defines how to match and execute orders. limit|market|stop_limit|
 |`options.volume`	|String	|**mandatory** *for `market` & `stop_limit` strategies*|The amount you are willing to buy or sell|
@@ -622,7 +627,7 @@ Get your orders for a specific market
 
 |Parameter | Type | Optional | Description|
 | ---|---|---|---|
-|`market`	|String|**mandatory**|Market identifier in the format of "basequote" e.g. btcbch or btcxrp. All available markets can be found at [markets](#markets).|
+|`market`	|String|**mandatory**|Specify a market pair in the format of "basequote" e.g. `btcbch` or `btcxrp`.<br/> See [markets](#markets).|
 |`options`| Object | yes | Optional parameters to be passed, more details below.|
 |`options.limit`	|String|yes|Limit the number of returned trades <br/> Default value: `50`|
 |`options.state`	|String|yes|Filter order by state, defaults to wait (active orders)|
@@ -663,7 +668,7 @@ Cancel all your orders for a specific market and specific side (bid|ask)
 
 |Parameter | Type | Optional | Description|
 | ---|---|---|---|
-|`market`	|String|**mandatory**|Market identifier in the format of "basequote" e.g. btcbch or btcxrp. All available markets can be found at [markets](#markets).|
+|`market`|String|**mandatory**|Specify a market pair in the format of "basequote" e.g. `btcbch` or `btcxrp`.<br/> See [markets](#markets).|
 |`side`	|String|**mandatory**|Side of the orders (`ask`\|`bid`)|
 
 ```js
@@ -718,7 +723,7 @@ Get your trade history
 
 |Parameter | Type | Optional | Description|
 | ---|---|---|---|
-|`market`	|String|**mandatory**|Market identifier in the format of "basequote" e.g. btcbch or btcxrp. All available markets can be found at [markets](#markets).|
+|`market`	|String|**mandatory**|Specify a market pair in the format of "basequote" e.g. `btcbch` or `btcxrp`.<br/> See [markets](#markets).|
 |`options`| Object | yes | Optional parameters to be passed, more details below.|
 |`options.limit`	|String|yes|Limit the number of returned trades <br/> Default value: `50`|
 |`options.timestamp`	|String|yes|An integer represents the seconds elapsed since Unix epoch. If set, only trades executed before the time will be returned|
@@ -761,7 +766,7 @@ Get wallet address for cryptocurrencies
 
 |Parameter | Type | Optional | Description|
 | ---|---|---|---|
-|`currency`	|String|**mandatory**|Currency (Cryptocurrency only) identifier e.g. `btc` or `xrp`.|
+|`currency`|String|**mandatory**|Currency (Cryptocurrency only) identifier e.g. `btc` or `xrp`.|
 
 ```js
 Coinfield.depositaddresses('btc',(addresses)=>{
@@ -787,9 +792,9 @@ Get your deposit history for cryptocurrencies or fiat
 |Parameter | Type | Optional | Description|
 | ---|---|---|---|
 |`options`| Object | yes | Optional parameters to be passed, more details below.|
-|`options.currency`	|String|yes|Currency identifier e.g. `btc` or `cad`. <br/>If not set all currencies will be returned|
-|`options.limit`	|String\|Number|yes|Limit the number of returned deposits<br/>Default value: `50`|
-|`options.state`	|String|yes|filter results based on the state of the deposit. The following states for deposits are available:<br/>`submitted`,`canceled`,`rejected`,`accepted`|
+|`options.currency`|String|yes|Currency identifier e.g. `btc` or `cad`. <br/>If not set all currencies will be returned|
+|`options.limit`|String\|Number|yes|Limit the number of returned deposits<br/>Default value: `50`|
+|`options.state`|String|yes|filter results based on the state of the deposit. The following states for deposits are available:<br/>`submitted`,`canceled`,`rejected`,`accepted`|
 |`options.txid`	|String|yes|Filter based on a specific transaction ID on the Blockchain. If this value is set, limit and state fields are ignored.|
 ```js
 Coinfield.deposits({limit:2},(deposits)=>{
@@ -836,11 +841,11 @@ Get withdrawal destination addresses for different currencies.
 
 |Parameter | Type | Optional | Description|
 | ---|---|---|---|
-|`currency`	|String|**mandatory**|Currency identifier for which you want to retrieve withdrawal addresses e.g. `btc` or `cad`.|
+|`currency`|String|**mandatory**|Currency identifier for which you want to retrieve withdrawal addresses e.g. `btc` or `cad`.|
 |`options`| Object | yes | Optional parameters to be passed, more details below.|
 |`options.per_page`	|String\|Number|yes|Number of results per page|
 |`options.page`	|String\|Number|yes|Page number|
-|`options.method`	|String|yes|Filter by method, e.g. `wire`|
+|`options.method`|String|yes|Filter by method, e.g. `wire`|
 ```js
 Coinfield.withdrawaladdresses('btc',(addresses)=>{
   console.log(addresses);
@@ -882,9 +887,9 @@ List all withdrawals
 
 |Parameter | Type | Optional | Description|
 | ---|---|---|---|
-|`currency`	|String|**mandatory**|Currency identifier for which you want to retrieve withdrawal addresses e.g. `btc` or `cad`.|
+|`currency`|String|**mandatory**|Currency identifier for which you want to retrieve withdrawal addresses e.g. `btc` or `cad`.|
 |`options`| Object | yes | Optional parameters to be passed, more details below.|
-|`options.limit`	|String\|Number|yes|Limit the number of returned results.|
+|`options.limit`|String\|Number|yes|Limit the number of returned results.|
 |`options.page`	|String\|Number|yes|Page number|
 ```js
 Coinfield.withdrawaladdresses('btc', {limit:2}, (addresses)=>{
@@ -935,9 +940,9 @@ Submit a new withdrawal request for fiat or crypto
 |Parameter | Type | Optional | Description|
 | ---|---|---|---|
 |`options`| Object | **mandatory** | Mandatory parameters to be passed, more details below.|
-|`options.currency`	|String|**mandatory**|Currency identifier for which you want to retrieve withdrawal addresses e.g. `btc` or `cad`.|
-|`options.amount`	|String\|Number|**mandatory**|Amount to be withdrawn|
-|`options.destination`	|String\|Number|**mandatory**|Destination ID. See [withdrawaladdresses](#withdrawaladdresses)|
+|`options.currency`|String|**mandatory**|Currency identifier for which you want to retrieve withdrawal addresses e.g. `btc` or `cad`.|
+|`options.amount`|String\|Number|**mandatory**|Amount to be withdrawn|
+|`options.destination`|String\|Number|**mandatory**|Destination ID. See [withdrawaladdresses](#withdrawaladdresses)|
 |`options.otp`	|String|yes|**If OTP/2FA (Two Factor Authentication) is turned on, this value is required**|
 ```js
 Coinfield.makewithdrawal({currency:'cad', amount:'0.01', destination:'13'}, (addresses)=>{
