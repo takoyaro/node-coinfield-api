@@ -1057,7 +1057,7 @@ Coinfield.pricealerts({action:'get'}, (alerts)=>{
 
 ##### Tickers
 
-The client is automatically subscribed too tickers, all you need to do is handle them: <br/>See [Event Handling](#event-handling).
+The client is automatically subscribed to tickers, all you need to do is handle them: <br/>See [Event Handling](#event-handling).
 
 ##### Market Updates
 
