@@ -1,6 +1,6 @@
 # Node Coinfield API
 
-This project is designed to help you make your own projects that interact with the Coinfield API. This project seeks to have complete API coverage including private calls and Websocket. Currently only allows public & private calls.
+This project is designed to help you make your own projects that interact with the Coinfield API. This project seeks to have complete API coverage including private calls and Websocket.
 
 [![Coinfield](https://github.com/takoyaro/node-coinfield-api/raw/master/icons/coinfield.png)](https://coinfield.com/ref/0/IDD54356E7D6)
 
@@ -18,7 +18,9 @@ npm i node-coinfield-api --save
 ### 📜 Getting Started
 
 ```js
-const Coinfield = require('node-coinfield-api')();
+const Coinfield = require('node-coinfield-api')({
+APIKEY: //YOUR API KEY HERE - ONLY REQUIRED FOR PRIVATE CALLS
+});
 ```
 
 ##### Getting Server Status
@@ -490,8 +492,8 @@ Coinfield.markets((markets)=>{
 
 ### Development
 
-At this point in time, only public and private calls are available but I am planning to implement:
-- Websocket => 2020/01/01
+At this point in time, implementation of the public and private calls to the REST API is completed as well as the implementation of the Websocket API.
+Therefore, at this point, the development will go towards optimization, fixing issues *when they come* and keeping the code up-to-date should Coinfield decide to update their API.
 
 #### ☕ Keep a fellow Developer hydrated
 

@@ -16,12 +16,68 @@
    let Coinfield = this;
 
    const request = require('request');
+   const io  = require('socket.io-client');
+   const socket = io('https://ws.coinfield.com');
    const base = 'https://api.coinfield.com/v1/';
    const default_options = {
         verbose: false
     };
     Coinfield.options = Object.assign({}, default_options, options);
+
+    const EventEmitter = require('events');
+    class MyEmitter extends EventEmitter {};
+    const SocketHandler = new MyEmitter();
+
+    var onevent = socket.onevent;
+    socket.onevent = function (packet) {
+        var args = packet.data || [];
+        onevent.call (this, packet);    // original call
+        packet.data = ["*"].concat(args);
+        onevent.call(this, packet);      // additional call to catch-all
+    };
+
+    socket.on("*",function(event,data) {
+      if(Coinfield.options.verbose===true) console.log({event:event, data:data});
+      SocketHandler.emit(event, {data:(Array.isArray(data)) ? data[0] : ('data' in data) ? data.data : data});
+    });
+
     return {
+
+      socket: {
+        handler: SocketHandler,
+
+        subscribe: {
+          market: function(market){
+            if(Coinfield.options.verbose===true) console.log(`Subscribed to ${market} market`);
+            socket.emit('market', market);
+          },
+          userOrders: function(){
+            if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
+            if(Coinfield.options.verbose===true) console.log("Subscribed to user Orders");
+            socket.emit('subscribe', 'user:orders', Coinfield.options.APIKEY);
+          },
+          userTrades: function(){
+            if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
+            if(Coinfield.options.verbose===true) console.log("Subscribed to user Trades");
+            socket.emit('subscribe', 'user:trades', Coinfield.options.APIKEY);
+          },
+          userRewards: function(){
+            if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
+            if(Coinfield.options.verbose===true) console.log("Subscribed to user Rewards");
+            socket.emit('subscribe', 'user:rewards', Coinfield.options.APIKEY);
+          },
+          userDeposits: function(){
+            if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
+            if(Coinfield.options.verbose===true) console.log("Subscribed to user Deposits");
+            socket.emit('subscribe', 'user:deposits', Coinfield.options.APIKEY);
+          },
+          userWithdrawals: function(){
+            if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
+            if(Coinfield.options.verbose===true) console.log("Subscribed to user Withdrawals");
+            socket.emit('subscribe', 'user:withdrawals', Coinfield.options.APIKEY);
+          }
+        }
+      },
 
       /**
        * Gets the status of the server
@@ -29,6 +85,7 @@
        * @return {undefined}
        */
       status: function(callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Coinfield Status");
         request(`${base}status`, function (error, response, body) {
           if(error!=null){
             throw Error(error);
@@ -43,6 +100,7 @@
        * @return {undefined}
        */
       timestamp: function(callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Coinfield Timestamp");
         request(`${base}timestamp`, function (error, response, body) {
           if(error!=null){
             throw Error(error);
@@ -58,6 +116,7 @@
        * @return {undefined}
        */
       currencies: function(symbol = null, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Currencies");
         if (typeof symbol === 'function') callback = symbol; // backwards compatibility
         request(`${base}currencies`, function (error, response, body) {
           if(error!=null){
@@ -88,6 +147,7 @@
        * @return {undefined}
        */
       markets: function(market = null, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Markets");
         if (typeof market === 'function') callback = market; // backwards compatibility
         request(`${base}markets`, function (error, response, body) {
           if(error!=null){
@@ -118,6 +178,7 @@
        * @return {undefined}
        */
       tickers: function(market = null, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Tickers");
         if (typeof market === 'function') callback = market;
         request(`${base}tickers/${(typeof market === 'string') ? market : ''}`, function (error, response, body) {
           if(error!=null){
@@ -136,6 +197,7 @@
        * @return {undefined}
        */
       orderbook: function(market, limit=null, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Orderbook");
         if (typeof market != 'string') throw Error("Market must be a string");
         if (typeof limit === 'function') callback = limit;
         request(`${base}orderbook/${market}?limit=${(typeof limit === 'function') ? '20' : limit}`, function (error, response, body) {
@@ -155,6 +217,7 @@
        * @return {undefined}
        */
       depth: function(market, limit=null, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Depth");
         if (typeof market != 'string') throw Error("Market must be a string");
         if (typeof limit === 'function') callback = limit;
         request(`${base}depth/${market}?limit=${(typeof limit === 'function') ? '20' : limit}`, function (error, response, body) {
@@ -167,7 +230,7 @@
       },
 
       /**
-       * Get depth for a specific market
+       * OHLC (KLine) of a specific market
        * @param {string} market - Market identifier in the format of "basequote" e.g. btcbch or btcxrp.
        * @param {Object[]} options - The employees who are responsible for the project.
        * @param {(number|string)} options[].limit - Limit number of candles.
@@ -178,6 +241,7 @@
        * @return {undefined}
        */
       ohlc: function(market, options={}, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested OHLC");
         if (typeof market != 'string') throw Error("Market must be a string");
         if (typeof options === 'function') callback = options;
         request(`${base}ohlc/${market}?${('limit' in options) ? 'limit='+options.limit+'&' : ''}${('period' in options) ? 'period='+options.period+'&' : ''}${('from' in options) ? 'from='+options.from+'&' : ''}${('to' in options) ? 'to='+options.to+'&' : ''}`, function (error, response, body) {
@@ -190,7 +254,7 @@
       },
 
       /**
-       * Get depth for a specific market
+       * Get trades for a specific market
        * @param {string} market - Market identifier in the format of "basequote" e.g. btcbch or btcxrp.
        * @param {Object[]} options - The object of optional parameters
        * @param {(number|string)} options[].limit - Limit number of candles.
@@ -202,6 +266,7 @@
        * @return {undefined}
        */
       trades: function(market, options={}, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Trades");
         if (typeof market != 'string') throw Error("Market must be a string");
         if (typeof options === 'function') callback = options;
         request(`${base}trades/${market}?${('limit' in options) ? 'limit='+options.limit+'&' : ''}${('timestamp' in options) ? 'timestamp='+options.timestamp+'&' : ''}${('from' in options) ? 'from='+options.from+'&' : ''}${('to' in options) ? 'to='+options.to+'&' : ''}${('order_by' in options) ? 'order_by='+options.order_by : ''}`, function (error, response, body) {
@@ -226,6 +291,7 @@
        * @return {undefined}
        */
       account: function(callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested User Account");
         if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
         request({
         url: `${base}account`,
@@ -246,6 +312,7 @@
        * @return {undefined}
        */
       wallets: function(wallets, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested User Wallets");
         if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
         if (typeof wallets === 'function') callback = wallets; // backwards compatibility
         request({
@@ -281,6 +348,7 @@
        * @return {undefined}
        */
       fees: function(callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Fees");
         if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
         request({
         url: `${base}fees`,
@@ -310,6 +378,7 @@
        * @return {undefined}
        */
       placeorder: function(params, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Place Order");
         if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
         request({
         url: `${base}order`,
@@ -332,6 +401,7 @@
        * @return {undefined}
        */
       getorder: function(orderid, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Get Order");
         if(typeof orderid === 'function') throw Error("Must pass an orderID");
         if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
         request({
@@ -353,6 +423,7 @@
        * @return {undefined}
        */
       deleteorder: function(orderid, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Delete Order");
         if(typeof orderid === "function") throw Error("Must provide a (string|int) orderid.")
         if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
         request({
@@ -380,6 +451,7 @@
        * @return {undefined}
        */
       getorders: function(market, options=null, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Get Orders for Market");
         if(typeof market === "function") throw Error("Must provide a (string) MarketID, ex: 'btcxrp'")
         if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
         if(typeof options === "function") callback = options;
@@ -403,6 +475,7 @@
        * @return {undefined}
        */
       deleteorders: function(market, side, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Delete Orders for Market & Side");
         if(typeof market === "function") throw Error("Must provide a (string) market identifier e.g. btcxrp")
         if(typeof side === "function") throw Error("Must provide a (string) side of orders to delete e.g. bid")
         if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
@@ -432,6 +505,7 @@
        * @return {undefined}
        */
       tradehistory: function(market, options = null, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Trade History");
         if(typeof market === "function") throw Error("Must provide a (string) market identifier e.g. btcxrp")
         if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
         if(typeof options === "function") callback = options;
@@ -454,6 +528,7 @@
        * @return {undefined}
        */
       depositaddresses: function(currency, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Deposit Addresses");
         if(typeof currency === "function") throw Error("Must provide a valid currency identifier e.g.: btc");
         if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
         request({
@@ -479,6 +554,7 @@
        * @return {undefined}
        */
       deposits: function(options, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Deposits");
         if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
         if(typeof options === "function") callback = options;
         request({
@@ -504,6 +580,7 @@
        * @return {undefined}
        */
       withdrawaladdresses: function(currency, options, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Withdrawal Addresses");
         if(typeof currency === "function") throw Error("Must provide a valid (string) currency argument e.g.: btc")
         if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
         if(typeof options === "function") callback = options;
@@ -529,6 +606,7 @@
        * @return {undefined}
        */
       withdrawals: function(currency, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Withdrawals");
         if(typeof currency === "function") throw Error("Must provide a valid currency identifier e.g.: btc");
         if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
         request({
@@ -554,6 +632,7 @@
        * @return {undefined}
        */
       makewithdrawal: function(params, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Make Withdrawal");
         if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
         request({
         url: `${base}withdrawals/${params.currency}`,
@@ -582,6 +661,7 @@
        * @return {undefined}
        */
       pricealerts: function(params = null, callback = false){
+        if(Coinfield.options.verbose===true) console.log("Requested Price Alerts");
         if(typeof params !== 'object') throw Error("Must pass parameters object");
         if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
         if(typeof alertID === 'function') callback = alertID;

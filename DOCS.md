@@ -29,7 +29,7 @@
 	- [pricealerts](#pricealerts)
 - [WebSocket](#websocket) 🔗
 
-##  🚶‍♀️ 🚶
+###  🚶‍♀️ 🚶
 ## Getting Started
 ```js
 const Coinfield = require('node-coinfield-api')({
@@ -38,7 +38,7 @@ APIKEY: //YOUR API KEY HERE - ONLY REQUIRED FOR PRIVATE CALLS
 ```
 For the purpose of keeping this documentation clean and coherant, all the examples below using the `Coinfield` namespace will refer to the constant variable declared above.
 
-## 📢
+### 📢
 ## Public Calls
 
 ### status
@@ -389,7 +389,7 @@ Coinfield.trades("btccad", {limit:24}, (trades)=>{
 ```
 </details>
 
-## 🕵️
+### 🕵️
 ## Private Calls
 
 ### account
@@ -1048,8 +1048,249 @@ Coinfield.pricealerts({action:'get'}, (alerts)=>{
 ```
 </details>
 
-## 🔗
+### 🔗
 ## Websocket
 
-*Work in Progress*
-*ETA: 2020/01/01*
+### Event Subscribing
+
+#### Public Channel
+
+##### Tickers
+
+The client is automatically subscribed too tickers, all you need to do is handle them: <br/>See [Event Handling](#event-handling).
+
+##### Market Updates
+
+|Parameter|Type|Optional|Description|
+| --- | --- | --- |---|
+|marketID|String|**mandatory**|Market to which you want to subscribe<br/>See [markets](#markets)|
+
+```js
+Coinfield.socket.subscribe.market("xrpusd");
+```
+
+Once subscribed, you can listen with the proper events below. Also see [Event Handling](#event-handling).
+
+|Event| Example |
+| --- | --- |
+|`orderbook_updates__**marketID**`| `orderbook_updates__btcxrp`
+|`trades_updates__**marketID**`| `trades_updates__btcxrp`
+
+##
+
+#### Private Channel
+
+**Note: To subscribe to the events below, make sure you provide your API Key when initializing `node-coinfield-api`**
+<br/>See [Getting Started](#getting-started)
+
+##### User Orders
+
+```js
+Coinfield.socket.subscribe.userOrders();
+```
+
+##### User Trades
+
+```js
+Coinfield.socket.subscribe.userTrades();
+```
+
+##### User Rewards
+
+```js
+Coinfield.socket.subscribe.userRewards();
+```
+
+##### User Deposits
+
+```js
+Coinfield.socket.subscribe.userDeposits();
+```
+
+##### User Withdrawals
+
+```js
+Coinfield.socket.subscribe.userWithdrawals();
+```
+
+
+Once subscribed, you can listen with the proper events, see [Event Handling](#event-handling).
+
+
+##
+
+### Event Handling
+
+|Parameter|Type|Optional|Description|
+| --- | --- | --- |---|
+|eventName|String|**mandatory**|Possible event names are `tickers`, `orderbook_updates__MARKETIDENTIFIER`, `trades_updates__MARKETIDENTIFIER`, `user:orders`, `user:trades`, `user:rewards`, `user:deposits`and `user:withdrawals` <br/> Note: Notice the **two** underscores between the `orderbook_updates` and the `MARKETIDENTIFIER`. <br/>Same goes for `trades_updates`. |
+
+```js
+Coinfield.socket.handler.on('eventName', function(data){
+  console.log(data);
+})
+```
+
+#### Examples
+
+##### Handle [Tickers](#tickers)
+
+```js
+Coinfield.socket.handler.on('tickers', function(data){
+  console.log(data);
+}
+```
+
+<details>
+
+<summary>View Response</summary>
+
+```js
+{
+"data": [{
+  "market": "bchcad",
+  "ticker": {
+    "open": "575.7",
+    "last": "576.18",
+    "high": "599.7929",
+    "low": "510.2031",
+    "buy": "536.9",
+    "sell": "594.47",
+    "vol": "12238.78065826"
+    }
+  },
+  {
+  "market": "ltceur",
+  "ticker": {
+    "open": "42.1258",
+    "last": "43.1622",
+    "high": "46.25",
+    "low": "40.04",
+    "buy": "44.64",
+    "sell": "46.2",
+    "vol": "101033.10176358"
+  }
+  },
+  {
+  "market": "gntxrp",
+  "ticker": {
+    "open": "0.3608",
+    "last": "0.3696",
+    "high": "0.411",
+    "low": "0.34",
+    "buy": "0.35",
+    "sell": "0.3696",
+    "vol": "27603427.6457799"
+  }
+  }]
+}
+```
+
+</details>
+
+#
+
+##### Handle [Market Updates](#market-updates)
+
+###### Orderbook
+
+```js
+Coinfield.socket.handler.on('orderbook_updates__btcusd', function(data){
+  console.log(data);
+}
+```
+
+<details>
+
+<summary>View Response</summary>
+
+```js
+{
+  "data": [{
+      "market": "btcusd",
+      "event": "add",
+      "from": "bids",
+      "data": [{
+        "id": "7l211dtju7d00gadgo",
+        "price": "5766.13",
+        "volume": "0.1113",
+        "timestamp": 1541011693.351
+      }]
+  }]
+}
+```
+
+</details>
+
+
+###### Trades
+
+```js
+Coinfield.socket.handler.on('trades_updates__btcusd', function(data){
+  console.log(data);
+}
+```
+
+<details>
+
+<summary>View Response</summary>
+
+```js
+{
+  "data": [{
+      "id": "7l1dtju7e005e2p2",
+      "price": "6003.37",
+      "volume": "0.03",
+      "total_value": "180.1011",
+      "timestamp": "2018-10-31T18:48:14.000000Z",
+      "direction": 1
+  }]
+}
+```
+
+</details>
+
+##
+
+##### Handle [User Orders](#private-channel)
+
+```js
+Coinfield.socket.handler.on('user:orders', function(data){
+  console.log(data);
+}
+```
+
+<details>
+
+<summary>View Response</summary>
+
+```js
+[
+  {
+    "id": "mp211dtjv63009bt9q",
+    "market": "ethxrp",
+    "type": "bid",
+    "strategy": "limit",
+    "state": "closed",
+    "uid": "IDA111DB7827",
+    "income_unit": "eth",
+    "income_fee_type": "relative",
+    "income_fee_value": "0.0069",
+    "outcome_unit": "xrp",
+    "outcome_fee_type": "relative",
+    "outcome_fee_value": "0.0",
+    "initial_income_amount": "20.0",
+    "current_income_amount": "0.0",
+    "initial_outcome_amount": "9400.0",
+    "current_outcome_amount": "243.9525382504",
+    "trades_count": 16,
+    "created_at": "2018-10-31T19:04:35.000000Z",
+    "price": "470.0",
+    "previous_income_amount": "3.34",
+    "previous_outcome_amount": "1780.3525382504",
+    "updated_at": "2018-10-31T19:04:35.000000Z"
+  }
+]
+```
+
+</details>
