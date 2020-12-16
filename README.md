@@ -7,7 +7,7 @@ This project is designed to help you make your own projects that interact with t
 *I would like to point out that this is an unofficial script as Coinfield doesn't provide anything else than their REST and SocketIO API*
 
 ### 📓 Documentation
-In an attempt to keep this Readme short and sweet, you can find a few examples on how to use ***Node Coinfield API*** below but refer to the [documentation](https://github.com/takoyaro/node-coinfield-api/blob/master/DOCS.md) for the **complete** list of calls.
+In an attempt to keep this Readme short and sweet, you can find a few examples on how to use ***Node Coinfield API*** below but refer to your IDE Intellisense for the complete list of calls. If you use JS instead of TS, make sure to not call any private property or method (starting with an underscore '`_`') to avoid unwanted behavior. All the examples below are using the `await` syntax but most methods and properties return a Promise so you can go with `.then()` syntax if you prefer.
 
 ### 💻 Installation
 
@@ -17,30 +17,32 @@ npm i node-coinfield-api --save
 
 ### 📜 Getting Started
 
-```js
-const Coinfield = require('node-coinfield-api')({
-APIKEY: //YOUR API KEY HERE - ONLY REQUIRED FOR PRIVATE CALLS
-});
+Typescript
+```ts
+import {Coinfield} from 'node-coinfield-api';
+const cf = newCoinfield(YOURAPIKEY:string,verbone:boolean)
+```
+Javascript
+```ts
+const Coinfield = require('node-coinfield-api').Coinfield;
+const cf = new Coinfield(YOURAPIKEY:string,verbose:boolean);
 ```
 
+### REST API 
 ##### Getting Server Status
 ```js
-Coinfield.status((status)=>{
-  console.log(status);
-});
+await cf.status();
 ```
 <details>
  <summary>View Response</summary>
-```js
-{ status: 'ok' }
+```ts
+string: ok|maintenance|down
 ```
 </details>
 
 ##### Get all available markets
 ```js
-Coinfield.markets((markets)=>{
-  console.log(markets);
-});
+await cf.markets();
 ```
 <details>
  <summary>View Response</summary>
@@ -490,10 +492,37 @@ Coinfield.markets((markets)=>{
 ```
 </details>
 
+### Websocket
+
+#### Subscribe to Tickers
+```js
+cf.socket.subscribe.tickers();
+cf.socket.listener.on('tickers',(tickers)=>{
+    //Do whatever you want with the tickers here
+})
+```
+
+#### Subscribe to specific market Orderbook
+```js
+cf.socket.subscribe.market('xrpcad')
+cf.socket.listener.on('orderbook_updates__xrpcad',(ob)=>{
+    //Do whatever you want with the orderbook here
+})
+```
+#### Subscribe to specific market trades
+```js
+cf.socket.subscribe.market('xrpcad')
+cf.socket.listener.on('trades_updates__xrpcad',(trades)=>{
+    //Do whatever you want with the trades here
+})
+```
 ### Development
 
 At this point in time, implementation of the public and private calls to the REST API is completed as well as the implementation of the Websocket API.
 Therefore, at this point, the development will go towards optimization, fixing issues *when they come* and keeping the code up-to-date should Coinfield decide to update their API.
+
+Update 2020/12/17
+I've updated the API Wrapper, now compatible with Typescript, code is cleaner nad more documented. Coinfield made several changes to their API you should be aware of if you intend to contribute on this project. You should head to the **Notes about vanilla API** section below for more details.
 
 #### ☕ Keep a fellow Developer hydrated
 
@@ -501,6 +530,77 @@ Therefore, at this point, the development will go towards optimization, fixing i
 ![XRP](https://github.com/takoyaro/node-coinfield-api/raw/master/icons/eth.svg?sanitize=true)ETH: `0x821d8D60d43229fBFD6fcD5aD97450D1A164547f`<br />
 ![BTC](https://github.com/takoyaro/node-coinfield-api/raw/master/icons/btc.svg?sanitize=true)BTC: `17NwZQ86HswwHLEDfBkhu6kZUoUZy4CGSG`
 
+### Notes about vanilla API
+Lots of comments, limitations and parameters of this wrapper differs from Coinfield API because their documentation is outdated.
+The error field is being deprecated. Must now use `alerts`
+Orderbook limits must now be one of these values : `1`,`20`,`50`,`100`,`150` or `200`
+Account endpoint now provides very sensitive information. Use carefully.
+```ts
+  account:{
+    uid: string
+    email: string,
+    level: number,
+    role: string,
+    tz: string,
+    time_zone: string,
+    base_cid: string,
+    base_currency: string,
+    generate_account_statements: boolean,
+    account_statements_enabled: boolean,
+    trading_discounts_enabled: boolean,
+    registration_source: string,
+    referrer_uid: string|null,
+    mfa_enabled: boolean,
+    otp: boolean,
+    terms_version: number,
+    primary_terms_version: number,
+    atp_terms_version: number,
+    phones: {number:string}[],
+    current_sign_in_ip: string,
+    current_sign_in_at: string,
+    last_sign_in_ip: string
+    last_sign_in_at: string,
+    profile: {
+      status: string,
+      first_name: string,
+      middle_name: string,
+      last_name: string,
+      first_last_name: string,
+      second_last_name: string,
+      international_full_name: string,
+      name_suffix: string,
+      birthdate: string,
+      gender: string,
+      nationality: string,
+      country: string,
+      uniform_territory: any,
+      address: string,
+      address_line_1: string,
+      address_line_2: string,
+      territory: string,
+      city: string,
+      postcode: string,
+      occupation: string,
+      job_title: string,
+      proof_of_address_type: string,
+      proof_of_address_document: string,
+      trading_skills_level: string,
+      estimated_trading_volume_per_month: string,
+      source_of_funds_type_type: string,
+      source_of_funds_description: string,
+      purpose_of_the_account: any,
+      representing_someone_else: any,
+      politically_exposed_person: any,
+      level_6_application_submitted_at: any,
+      level_6_application_method: any
+    },
+    documents: {type:string,number:string,expiry:string|null,date:string|null, url:string}[]
+  },
+  timestamp: string,
+  took: string
+```
+Order enpoint actually doesn't return a `trades` array nor a `price` property nor a `market` property.
+It is unclear why the changes are not documented and you shouldn't worry about this if you plan to use this API Wrapper but if you plan on contributing or editing the source by yourself, it should be considered.
 
 
 [![HitCount](http://hits.dwyl.io/takoyaro/node-coinfield-api.svg)](http://hits.dwyl.io/takoyaro/node-coinfield-api)

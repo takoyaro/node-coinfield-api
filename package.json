@@ -4,12 +4,18 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
+    "@types/node-fetch": "^2.5.7",
+    "@types/socket.io-client": "^1.4.34",
     "request": "^2.88.0",
     "socket.io-client": "^2.3.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "typescript": "^4.1.2"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "start": "tsc && node dist/index.js"
   },
   "keywords": [
     "coinfield",
