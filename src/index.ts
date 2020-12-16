@@ -7,6 +7,7 @@
 
 import fetch from 'node-fetch';
 import io from 'socket.io-client';
+import {EventEmitter} from 'events';
 
 export class Coinfield{
   
@@ -14,35 +15,45 @@ export class Coinfield{
   private _apiURL:string = 'https://api.coinfield.com/v1/';
   private _verbose:boolean = false;
   private _APIKey:string = '';
+  private _eventEmitter:EventEmitter = new EventEmitter();
 
     constructor(APIKey?:string,verbose?:boolean){
       if(verbose){
         this._verbose=verbose;
         console.warn("Verbose mode active")
       }
-      if(APIKey.length){
+      if(APIKey){
         this._APIKey = APIKey;
       }
       else{
         if(verbose){console.info("Using the API without Authentication. Private endpoints wont be available.")}
       }
+      this._socket.emit('subscribe', 'tickers');
+      this._socket.on('tickers',(payload)=>{
+        this._eventEmitter.emit('tickers',payload);
+      })
     }
 
     public socket = {
       subscribe:{
-        market: (market:string)=>{this.subscribeToMarket(market);},
+        market:(market:string)=>{this.subscribeToMarket(market);},
+        tickers:()=>{
+          this._socket.io.emit('subscribe','tickers');
+          this._socket.emit('subscribe','tickers');
+        },
         /**
          * ALL THE METHODS WITHIN THIS `private` PROPERTY REQUIRE AN API KEY.
          * MAKE SURE YOU SET ONE IN THE CLASS CONSTRUCTOR.
          */
         private:{
-          userOrders: ()=>{this.subscribeToPrivateEndpoint('user:orders')},
-          userTrades: ()=>{this.subscribeToPrivateEndpoint('user:trades')},
-          userRewards: ()=>{this.subscribeToPrivateEndpoint('user:rewards')},
-          userDeposits: ()=>{this.subscribeToPrivateEndpoint('user:deposits')},
-          userWithdrawals: ()=>{this.subscribeToPrivateEndpoint('user:withdrawals')}
+          userOrders:()=>{this.subscribeToPrivateEndpoint('user:orders')},
+          userTrades:()=>{this.subscribeToPrivateEndpoint('user:trades')},
+          userRewards:()=>{this.subscribeToPrivateEndpoint('user:rewards')},
+          userDeposits:()=>{this.subscribeToPrivateEndpoint('user:deposits')},
+          userWithdrawals:()=>{this.subscribeToPrivateEndpoint('user:withdrawals')}
         }
-      }
+      },
+      listener:this._socket
     };
 
     private subscribeToMarket(market:string){
@@ -54,681 +65,749 @@ export class Coinfield{
       this._socket.emit('subscribe', endpoint, this._APIKey);
       if(this._verbose) console.log(`Subscribed to ${endpoint}`);
     }
+
     private async getEndpointData(endpoint:string,isPrivate?:boolean){
-      let req = await fetch(`${this._apiURL}${endpoint}`,(isPrivate) ? {headers: {'Authorization': `Bearer ${this._APIKey}`}} : null);
+      let options = (isPrivate) ? {headers: {'Authorization': `Bearer ${this._APIKey}`}}:{};
+      let req = await fetch(`${this._apiURL}${endpoint}`,options);
+      
+      if(req.ok){
+        if(this._verbose) console.info(`${req.url} - Status: ${req.status}`)
+        let res = await req.json();
+        if(this._verbose) console.info(JSON.stringify(res));
+        return res;
+      }
+      else{
+        console.error(`There was an error fetching data for ${req.url} | Private Request?: ${isPrivate ?? false}`);
+        console.error(`Request Options:`);
+        console.error(options);
+        let error = await req.json();
+        console.error(JSON.stringify(error));
+        return null;
+      }
+    }
+    private async deleteEndpointData(endpoint:string){
+      let req = await fetch(`${this._apiURL}${endpoint}`,{
+        method:'DELETE',
+        headers: {'Authorization': `Bearer ${this._APIKey}`}
+      });
+      
       if(req.ok){
         let res = await req.json();
         return res;
       }
       else{
         console.error(`There was an error fetching data for ${endpoint}`);
-        if(this._verbose) console.info({
-          status:req.status,
-          statusText: req.statusText
-        });
+        let error = await req.json();
+        console.error(error);
         return null;
       }
     }
-    public timestamp(){
+    private async postEndpointData(endpoint:string,obj:object){
+      let req = await fetch(`${this._apiURL}${endpoint}`,{
+        method:'POST',
+        body:JSON.stringify(obj),
+        headers: {
+          'Authorization': `Bearer ${this._APIKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
+      if(req.ok){
+        let res = await req.json();
+        return res;
+      }
+      else{
+        console.error(`There was an error posting data to ${endpoint}`);
+        console.error(`Request Body:`);
+        console.error(obj);
+        let error = await req.json();
+        console.error(error);
+        return null;
+      }
+    }
+    /**
+     * Status of the system - `ok`|`maintenance`|`down`
+     */
+    public status = async ():Promise<SystemStatus>=>{
+      const raw:status = await this.getEndpointData('status');
+      if(raw) return raw.status as SystemStatus;
+    }
+    /**
+     * ISO 8601 representation of the current time of the server
+     */
+    public timestamp = async ():Promise<string>=>{
+      const raw:timestamp = await this.getEndpointData('timestamp');
+      if(raw) return raw.timestamp as string;
+    }
+    /**
+     * Get a list of all available currencies on the platform
+     */
+    public currencies = async ():Promise<currencies>=>{
+      const raw:currencies = await this.getEndpointData('currencies');
+      if(raw) return raw as currencies;
+    }
+    /**
+     * Get all available markets
+     */
+    public markets = async ():Promise<markets>=>{
+      const raw:markets = await this.getEndpointData('markets');
+      if(raw) return raw as markets;
+    }
+    /**
+     * Get tickers for all or a specific market
+     * Specify a market pair in the format of "basequote" e.g. btcbch or btcxrp.
+     * If not provided all market tickers are returned.
+     * All available markets can be found using the `markets` method;
+     */
+    public tickers = async (market?:string):Promise<tickers>=>{
+      const raw:tickers = await this.getEndpointData(`tickers${(market) ? `/${market}` : ''}`);
+      if(raw) return raw as tickers;
+    }
+    /**
+     * Get orderbook for a specific market
+     * @param limit If set, value must be either `1`,`20`,`50`,`100`,`150` or `200`
+     */
+    public orderbook = async (market:string,limit?:number):Promise<orderbook>=>{
+      if(limit){
+        if(![1,20,50,100,150,200].includes(limit)){
+          throw Error("If set, Limit parameter must be one of these values 1,20,50,100,150,200 as per Coinfield API");
+        }
+      }
+      const raw:orderbook = await this.getEndpointData(`orderbook${(market) ? `/${market}` : ''}${(limit) ? `?limit=${limit}` : ''}`);
+      if(raw) return raw as orderbook;
+    }
+    /**
+     * Get depth for a specific market
+     * @param limit If set, value must be either `1`,`20`,`50`,`100`,`200` or `300`
+     */
+    public depth = async (market:string,limit?:number):Promise<depth>=>{
+      if(limit){
+        if(![1,20,50,100,200,300].includes(limit)){
+          throw Error("If set, Limit parameter must be one of these values 1,20,50,100,200,300 as per Coinfield API");
+        }
+      }
+      const raw:depth = await this.getEndpointData(`depth${(market) ? `/${market}` : ''}${(limit) ? `?limit=${limit}` : ''}`);
+      if(raw) return raw as depth;
+    }
+    /**
+     * Get OHLC candles for a specific market
+     * @param period  If set, `period` parameter value must be either `1`, `5`, `15`, `30`, `60`, `120`, `240`, `360`, `720`, `1440`, `4320`, `10080`. Default to `30`
+     * @param from UNIX epoch timestamp of start time
+     * @param to UNIX epoch timestamp of start time
+     */
+    public ohlc = async (market:string,limit:number=30,period:number=5,from?:number,to?:number):Promise<ohlc>=>{
+      if(![1, 5, 15, 30, 60, 120, 240, 360, 720, 1440, 4320, 10080].includes(period)){
+        throw Error("Period parameter must be one of these values 1, 5, 15, 30, 60, 120, 240, 360, 720, 1440, 4320, 10080 as per Coinfield API");
+      }
+      let endpoint = `ohlc/${market}?limit=${limit}&period=${period}`;
+      if(from){endpoint += `&from=${from}`;}
+      if(to){endpoint += `&to=${to}`;}
+      const raw:ohlc = await this.getEndpointData(endpoint);
+      if(raw) return raw as ohlc;
+    }
+    /**
+     * Get Trades for a specific market
+     * @param limit If set, `limit` parameter value must be `50`|`100`|`150`|`200`|`250`. Default to `50`
+     * @param orderby If set, must be `asc`|`desc`
+     * @param from Trade id. If set, only trades done after the specified trade id will be returned
+     * @param to Trade id. If set, only trades done before the specified trade id will be returned
+     */
+    public trades = async (market:string,limit?:number,orderby?:orderType,from?:number,to?:number):Promise<trades>=>{
+      if(![50,100,150,200,250].includes(limit)){
+        throw Error("Period parameter must be one of these values 50,100,150,200,250 as per Coinfield API");
+      }
+      let endpoint = `trades/${market}?limit=${limit ?? 50}&order_by=${orderby ?? 'desc'}`;
+      if(from){endpoint += `&from=${from}`;}
+      if(to){endpoint += `&to=${to}`;}
+      const raw:trades = await this.getEndpointData(endpoint);
+      if(raw) return raw as trades;
     }
 
+    public leaderboard = async ():Promise<leaderboard>=>{
+      const raw:leaderboard = await this.getEndpointData('leaderboard');
+      if(raw) return raw as leaderboard;
+    }
 
+    //PRIVATE ENDPOINTS
+
+    public account = async ():Promise<account>=>{
+      const raw = await this.getEndpointData('account',true);
+      if(raw) return await raw as account;
+    }
+    public wallets = async ():Promise<wallets>=>{
+      const raw = await this.getEndpointData('wallets',true);
+      if(raw) return raw as wallets;
+    }
+    public fees = async ():Promise<fees>=>{
+      const raw = await this.getEndpointData('fees',true);
+      if(raw) return raw as fees;
+    }
+    /**
+     * Get, Create and Delete single orders for a specific market
+     */
+    public order = {
+      async get(id:string):Promise<singleOrder>{
+        const raw = await this.getEndpointData(`order/${id}`,true);
+        if(raw) return raw as singleOrder;
+      },
+      create: {
+        limit: {
+          bid:async (market:string,volume:number,price:number,expiry:number,immediate:boolean):Promise<newOrder>=>{
+            let order = await this.postEndpointData('order',{
+              market:market,
+              type:'bid',
+              strategy:'limit',
+              volume:volume,
+              price:price,
+              expiry:expiry,
+              immediate:immediate
+            });
+            return order as newOrder;
+          },
+          ask: async (market:string,volume:number,price:number,expiry:number,immediate:boolean):Promise<newOrder>=>{
+            let order = await this.postEndpointData('order',{
+              market:market,
+              type:'ask',
+              strategy:'limit',
+              volume:volume,
+              price:price,
+              expiry:expiry,
+              immediate:immediate
+            });
+            return order as newOrder;
+          }
+        },
+        market:{
+          bid: async(market:string,volume:number,price:number,funds:number):Promise<newOrder>=>{
+            let order = await this.postEndpointData('order',{
+              market:market,
+              type:'bid',
+              strategy:'limit',
+              volume:volume,
+              price:price,
+              funds:funds
+            })
+            return order as newOrder;
+          },
+          ask: async (market:string,volume:number,price:number):Promise<newOrder>=>{
+            let order = await this.postEndpointData('order',{
+              market:market,
+              type:'ask',
+              strategy:'limit',
+              volume:volume,
+              price:price
+            })
+            return order as newOrder
+          }
+        },
+        stoplimit:{
+          bid: async (market:string,volume:number,price:number,stop_price:number,expiry:number,immediate:boolean):Promise<newOrder>=>{
+            let order = await this.postEndpointData('order',{
+              market:market,
+              type:'bid',
+              strategy:'stop_limit',
+              volume:volume,
+              price:price,
+              stop_price:stop_price,
+              expiry:expiry,
+              immediate:immediate
+            })
+            return order as newOrder;
+          },
+          ask: async (market:string,volume:number,price:number,stop_price:number,expiry:number,immediate:boolean):Promise<newOrder>=>{
+            let order = await this.postEndpointData('order',{
+              market:market,
+              type:'ask',
+              strategy:'stop_limit',
+              volume:volume,
+              price:price,
+              stop_price:stop_price,
+              expiry:expiry,
+              immediate:immediate
+            })
+            return order as newOrder;
+          }
+        }
+      },
+      async delete(id:string):Promise<cancelledOrder>{
+        const raw = await this.deleteEndpointData(`order/${id}`,true);
+        if(raw) return raw as cancelledOrder;
+      }
+    }
+    /**
+     * Get, Delete all orders for a specific market
+     */
+    public orders = {
+      /**
+      * Get your orders for a specific market
+      */
+      get: async (market:string,limit?:number,state?:string,page?:number,orderBy?:'desc'|'asc'):Promise<orders>=>{
+        let endpoint = `orders/${market}`;
+        (limit) ? endpoint+=`?limit=${limit}` : endpoint+=`?limit=50`;
+        (state) ? endpoint+=`&state=${state}` : endpoint+=`&state=wait`;
+        (page) ? endpoint+=`&page=${page}` : '';
+        (orderBy) ? endpoint+=`&order_by=${orderBy}` : endpoint+=`&order_by=desc`;
+        const raw = await this.getEndpointData(endpoint,true);
+        if(raw) return raw as Promise<orders>;
+      },
+      /**
+       * Delete your orders for a specific market
+      */
+      delete: async (market:string,side:string):Promise<orders>=>{
+        const raw = await this.deleteEndpointData(`orders/${market}?side=${side}`);
+        if(raw) return raw as Promise<orders>;
+      }
+    }
+    /**
+     * Get your trading history for a specific market
+     */
+    public async tradeHistory(market:string,limit?:number,from?:number,to?:number,orderBy?:'asc'|'desc'):Promise<trades>{
+      let endpoint = `trade-history/${market}`;
+      (limit) ? endpoint+=`?limit=${limit}` : `?limit=50`;
+      (from) ? endpoint+= `&from=${from}` : '';
+      (to) ? endpoint+= `&to=${to}` : '';
+      (orderBy) ? endpoint+= `&order_by=${orderBy}` : '';
+      const raw = await this.getEndpointData(endpoint,true);
+      if(raw) return raw as trades;
+    }
+    
+    /**
+     * Get wallet address for cryptocurrencies
+    */
+    public async depositAddresses(currency:string):Promise<depositAddresses>{
+      const raw = await this.getEndpointData(`deposit-addresses/${currency}`,true);
+      if(raw) return raw as depositAddresses;
+    }
+
+    /**
+     * Get your deposit history for cryptocurrencies or fiat
+    */
+    public async deposits(currency?:string,limit?:number,state?:'submitted'|'canceled'|'rejected'|'accepted',txid?:string):Promise<deposits>{
+      let endpoint = `deposits`;
+      (currency) ? endpoint += `/${currency}` : null;
+      (limit) ? endpoint += `?limit=${limit}` : endpoint += `?limit=50`;
+      (state) ? endpoint += `&state=${state}` : null;
+      (txid) ? endpoint += `&txid=${txid}` : null;
+      const raw = await this.getEndpointData(endpoint,true);
+      if(raw) return raw as deposits;
+    }
 }
 
-let test = new Coinfield();
-test.socket.subscribe.
+type SystemStatus = 'ok' | 'maintenance' | 'down';
+type orderType = 'asc' | 'desc';
+interface status{
+  status:SystemStatus
+}
+interface timestamp{
+  timestamp:string
+}
+interface currency{
+  id:string,
+  type:string,
+  erc20:boolean,
+  ieo:boolean,
+  name:string,
+  symbol:string,
+  ISO4217:string,
+  precision:number,
+  /**
+   * Color of the currency in hex format, i.e.: `"#d80027"`
+   */
+  color:string,
+  /**
+   * base64 logo of the currency as `data:image/png;base64, ....`
+   */
+  logo:string
+}
+interface currencies{
+  /**
+   * Array of objects containing currencies:
+   */
+  currencies:currency[],
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
+interface market{
+  name:string,
+  id:string,
+  ask_unit:string,
+  bid_unit:string,
+  ask_precision:number,
+  bid_precision:number,
+  minimum_volume:string,
+  maximum_volume:string,
+  minimum_funds:string,
+  maximum_funds:string,
+  restricted_countries?:string[],
+  minimum_level:number
+}
+interface markets{
+  /**
+   * Array of objects containing markets pairs:
+   */
+  markets:market[],
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
+interface ticker{
+  market:string,
+  timestamp:string,
+  bid:number,
+  ask:number,
+  low:number,
+  high:number,
+  last:number,
+  open:number,
+  volume:number
+}
+interface tickers{
+  markets:ticker[],
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
+interface bidsasks{
+  id:string,
+  price:string,
+  volume:string,
+  timestamp:string
+}
+interface orderbook{
+  market:string,
+  total_asks:number,
+  total_bids:number,
+  bids_hash:string,
+  asks_hash:string,
+  bids: bidsasks[],
+  asks: bidsasks[],
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
+interface depth{
+  market:string,
+  /**
+   * Bids are provided in a [price,volume] format by the API.
+   * Might remap to an object structure in a future release.
+   */
+  bids:[string, string][][],
+  /**
+   * Asks are provided in a [price,volume] format by the API.
+   * Might remap to an object structure in a future release.
+   */
+  asks:[string, string][][],
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
+interface singleOHLC{
+  ts:string,
+  o:string,
+  h:string,
+  l:string,
+  c:string,
+  v:string
+}
+interface ohlc{
+  market:string,
+  ohlc:singleOHLC[],
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
+interface singleTrade{
+  id:string,
+  price:string,
+  volume:string,
+  fund:string,
+  executed_at:string,
+  total_value:string,
+  timestamp:string
+}
+interface trades{
+  market:string,
+  trades_hash:string,
+  trades:singleTrade[],
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
+interface leader{
+  email:string,
+  currency:string,
+  amount:string
+}
+interface leaderboard{
+  leaderboard:leader[],
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
+interface account{
+  account:{
+    uid: string
+    email: string,
+    level: number,
+    role: string,
+    tz: string,
+    time_zone: string,
+    base_cid: string,
+    base_currency: string,
+    generate_account_statements: boolean,
+    account_statements_enabled: boolean,
+    trading_discounts_enabled: boolean,
+    registration_source: string,
+    referrer_uid: string|null,
+    mfa_enabled: boolean,
+    otp: boolean,
+    terms_version: number,
+    primary_terms_version: number,
+    atp_terms_version: number,
+    phones: {number:string}[],
+    current_sign_in_ip: string,
+    current_sign_in_at: string,
+    last_sign_in_ip: string
+    last_sign_in_at: string,
+    profile: {
+      status: string,
+      first_name: string,
+      middle_name: string,
+      last_name: string,
+      first_last_name: string,
+      second_last_name: string,
+      international_full_name: string,
+      name_suffix: string,
+      birthdate: string,
+      gender: string,
+      nationality: string,
+      country: string,
+      uniform_territory: any,
+      address: string,
+      address_line_1: string,
+      address_line_2: string,
+      territory: string,
+      city: string,
+      postcode: string,
+      occupation: string,
+      job_title: string,
+      proof_of_address_type: string,
+      proof_of_address_document: string,
+      trading_skills_level: string,
+      estimated_trading_volume_per_month: string,
+      source_of_funds_type_type: string,
+      source_of_funds_description: string,
+      purpose_of_the_account: any,
+      representing_someone_else: any,
+      politically_exposed_person: any,
+      level_6_application_submitted_at: any,
+      level_6_application_method: any
+    },
+    documents: {type:string,number:string,expiry:string|null,date:string|null, url:string}[]
+  },
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
+interface wallets{
+  wallets: {currency:String,balance:string,locked:string}[],
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
+interface fees{
+  fees:{type:string,
+    currency:string,
+    method:string,
+    fee_type:string,
+    fee_value:string}[],
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
+interface singleOrder{
+  order:{
+    id:string,
+    strategy:string,
+    price:string,
+    immediate:boolean,
+    state:'open'|'closed'|'canceled'|'pending',
+    trades_count:number,
+    created_at:string,
+    side:string,
+    avg_price:string,
+    volume:string,
+    remaining_volume:string,
+    executed_volume: number,
+    market?:string
+  },
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
+interface newOrder{
+  order:{
+    id: string,
+    market: string,
+    strategy: string,
+    price: string,
+    stop_price: string,
+    type: string,
+    state: 'open'|'closed'|'canceled'|'pending',
+    trades_count: string,
+    created_at: string,
+    uid: string,
+    expiry: string,
+    immediate: string,
+    volume: string,
+    remaining_volume: string,
+    fee_percentage: string,
+    total_fee: string,
+    fee_currency: string,
+    cost: string,
+    receive: string,
+    base: string,
+    quote: string
+  },
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
+interface cancelledOrder{
+  order:{
+    id: string,
+    side: string,
+    strategy: 'limit'|'market'
+    price: string,
+    stop_price: string,
+    //* avg_price: (String - Average prices of executed trades) documentatin has an asterisk, not sure why. Need to test function;
+    state: 'open'|'closed'|'canceled'|'pending',
+    market: string,
+    created_at: string,
+    volume: string,
+    remaining_volume:string,
+    executed_volume: string,
+    trades_count: string,
+    trades:any[] //This is undocumented. Need to test the function
+  },
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
+interface orders{
+  market:string,
+  orders:singleOrder[],
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
+interface depositAddresses{
+  currency:string,
+  address:string,
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
+interface deposits{
+  deposits:{
+    id:number,
+    currency:string,
+    amount:string,
+    fee:string,
+    txid:null|string,
+    created_at:string,
+    confirmations:number,
+    completed_at:string,
+    state:string
+  }[],
+  /**
+   * ISO 8601 representation of the current time markets are fetched
+   */
+  timestamp:string,
+  /**
+   * Number of milliseconds taken for the API to respond. Useful to debug latency vs processing delays
+   */
+  took:string
+}
 
-
- let api = function Coinfield(options) {
-
-   let Coinfield = this;
-
-   const io  = require('socket.io-client');
-   const socket = io('https://ws.coinfield.com');
-   const base = 'https://api.coinfield.com/v1/';
-   const default_options = {
-        verbose: false
-    };
-    Coinfield.options = Object.assign({}, default_options, options);
-
-    const EventEmitter = require('events');
-    class MyEmitter extends EventEmitter {};
-    const SocketHandler = new MyEmitter();
-
-    var onevent = socket.onevent;
-    socket.onevent = function (packet) {
-        var args = packet.data || [];
-        onevent.call (this, packet);    // original call
-        packet.data = ["*"].concat(args);
-        onevent.call(this, packet);      // additional call to catch-all
-    };
-
-    socket.on("*",function(event,data) {
-      if(Coinfield.options.verbose===true) console.log({event:event, data:data});
-      SocketHandler.emit(event, {data:(Array.isArray(data)) ? data[0] : ('data' in data) ? data.data : data});
-    });
-
-    return {
-
-      socket: {
-        handler: SocketHandler,
-      },
-
-      /**
-       * Gets the status of the server
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      status: function(callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Coinfield Status");
-        request(`${base}status`, function (error, response, body) {
-          if(error!=null){
-            throw Error(error);
-          }
-          callback(JSON.parse(body));
-        });
-      },
-
-      /**
-       * Gets the timestamp of the server
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      timestamp: function(callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Coinfield Timestamp");
-        request(`${base}timestamp`, function (error, response, body) {
-          if(error!=null){
-            throw Error(error);
-          }
-          callback(JSON.parse(body));
-        });
-      },
-
-      /**
-       * Gets the details of a given symbol(s)
-       * @param {(string|string[])} [symbol = null] - the symbol or an array of symbols
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      currencies: function(symbol = null, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Currencies");
-        if (typeof symbol === 'function') callback = symbol; // backwards compatibility
-        request(`${base}currencies`, function (error, response, body) {
-          if(error!=null){
-            throw Error(error);
-          }
-          let obj = JSON.parse(body);
-          if(typeof symbol === 'function'){
-            callback(obj)
-          }
-          else if(typeof symbol === 'string'){
-            let result = obj.currencies.find(function(cur){ return cur["id"] === symbol.toLowerCase()});
-            callback(result);
-          }
-          else if(Array.isArray(symbol)){
-            let result = [];
-            symbol.forEach(symbols=>{
-              result.push(obj.currencies.find(function(cur){ return cur["id"] === symbols.toLowerCase()}));
-            })
-            callback(result);
-          }
-        });
-      },
-
-      /**
-       * Get all available markets
-       * @param {(string|string[])} [market = null] - the market or an array of markets
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      markets: function(market = null, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Markets");
-        if (typeof market === 'function') callback = market; // backwards compatibility
-        request(`${base}markets`, function (error, response, body) {
-          if(error!=null){
-            throw Error(error);
-          }
-          let obj = JSON.parse(body);
-          if(typeof market === 'function'){
-            callback(obj)
-          }
-          else if(typeof market === 'string'){
-            let result = obj.markets.find(function(marketObj){ return marketObj.id === market.toLowerCase()});
-            callback(result);
-          }
-          else if(Array.isArray(market)){
-            let result = [];
-            market.forEach(markets=>{
-              result.push(obj.markets.find(function(marketObj){ return marketObj.id === markets.toLowerCase()}));
-            })
-            callback(result);
-          }
-        });
-      },
-
-      /**
-       * Get all available markets
-       * @param {string} [market = null] - the market or an array of markets
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      tickers: function(market = null, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Tickers");
-        if (typeof market === 'function') callback = market;
-        request(`${base}tickers/${(typeof market === 'string') ? market : ''}`, function (error, response, body) {
-          if(error!=null){
-            throw Error(error);
-          }
-          let obj = JSON.parse(body);
-          callback(obj)
-        });
-      },
-
-      /**
-       * Get orderbook for a specific market
-       * @param {string} market - Market identifier in the format of "basequote" e.g. btcbch or btcxrp.
-       * @param {(number|string)} [limit = null] - Number of asks and bids array
-       * @param {function} callback - The callback function
-       * @return {undefined}
-       */
-      orderbook: function(market, limit=null, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Orderbook");
-        if (typeof market != 'string') throw Error("Market must be a string");
-        if (typeof limit === 'function') callback = limit;
-        request(`${base}orderbook/${market}?limit=${(typeof limit === 'function') ? '20' : limit}`, function (error, response, body) {
-          if(error!=null){
-            throw Error(error);
-          }
-          let obj = JSON.parse(body);
-          callback(obj)
-        });
-      },
-
-      /**
-       * Get depth for a specific market
-       * @param {string} market - Market identifier in the format of "basequote" e.g. btcbch or btcxrp.
-       * @param {(number|string)} [limit = null] - Limit the number of returned price levels.
-       * @param {function} callback - The callback function
-       * @return {undefined}
-       */
-      depth: function(market, limit=null, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Depth");
-        if (typeof market != 'string') throw Error("Market must be a string");
-        if (typeof limit === 'function') callback = limit;
-        request(`${base}depth/${market}?limit=${(typeof limit === 'function') ? '20' : limit}`, function (error, response, body) {
-          if(error!=null){
-            throw Error(error);
-          }
-          let obj = JSON.parse(body);
-          callback(obj)
-        });
-      },
-
-      /**
-       * OHLC (KLine) of a specific market
-       * @param {string} market - Market identifier in the format of "basequote" e.g. btcbch or btcxrp.
-       * @param {Object[]} options - The employees who are responsible for the project.
-       * @param {(number|string)} options[].limit - Limit number of candles.
-       * @param {(number|string)} options[].period - Candle periods => Valid range: 1, 5, 15, 30, 60, 120, 240, 360, 720, 1440, 4320, 10080
-       * @param {(number|string)} options[].from  - UNIX epoch timestamp of start time
-       * @param {(number|string)} options[].to - UNIX epoch timestamp of start time
-       * @param {function} callback - The callback function
-       * @return {undefined}
-       */
-      ohlc: function(market, options={}, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested OHLC");
-        if (typeof market != 'string') throw Error("Market must be a string");
-        if (typeof options === 'function') callback = options;
-        request(`${base}ohlc/${market}?${('limit' in options) ? 'limit='+options.limit+'&' : ''}${('period' in options) ? 'period='+options.period+'&' : ''}${('from' in options) ? 'from='+options.from+'&' : ''}${('to' in options) ? 'to='+options.to+'&' : ''}`, function (error, response, body) {
-          if(error!=null){
-            throw Error(error);
-          }
-          let obj = JSON.parse(body);
-          callback(obj)
-        });
-      },
-
-      /**
-       * Get trades for a specific market
-       * @param {string} market - Market identifier in the format of "basequote" e.g. btcbch or btcxrp.
-       * @param {Object[]} options - The object of optional parameters
-       * @param {(number|string)} options[].limit - Limit number of candles.
-       * @param {(number|string)} options[].timestamp - An integer represents the seconds elapsed since Unix epoch. If set, only trades executed before the time will be returned
-       * @param {(number|string)} options[].from  - Trade id. If set, only trades done after the specified trade id will be returned
-       * @param {(number|string)} options[].to - Trade id. If set, only trades done before the specified trade id will be returned
-       * @param {string} options[].order_by - If set, trades will be sorted in specific order (desc, asc). Default: desc
-       * @param {function} callback - The callback function
-       * @return {undefined}
-       */
-      trades: function(market, options={}, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Trades");
-        if (typeof market != 'string') throw Error("Market must be a string");
-        if (typeof options === 'function') callback = options;
-        request(`${base}trades/${market}?${('limit' in options) ? 'limit='+options.limit+'&' : ''}${('timestamp' in options) ? 'timestamp='+options.timestamp+'&' : ''}${('from' in options) ? 'from='+options.from+'&' : ''}${('to' in options) ? 'to='+options.to+'&' : ''}${('order_by' in options) ? 'order_by='+options.order_by : ''}`, function (error, response, body) {
-          if(error!=null){
-            throw Error(error);
-          }
-          let obj = JSON.parse(body);
-          callback(obj)
-        });
-      },
-
-      /****************************************
-      *
-      * PRIVATE CALLS
-      * APIKEY key must be passed to Coinfield for these to work
-      *
-      ****************************************/
-
-      /**
-       * Get my account details
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      account: function(callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested User Account");
-        if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
-        request({
-        url: `${base}account`,
-        headers: {
-          'Authorization': `Bearer ${Coinfield.options.APIKEY}`
-        },
-        rejectUnauthorized: false
-      },
-      function (error, response, body) {
-        callback(JSON.parse(body));
-      });
-      },
-
-      /**
-       * Get my wallets balances
-       * @param {(string|string[])} [wallet = null] - a wallet currency or an array of wallets currency
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      wallets: function(wallets, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested User Wallets");
-        if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
-        if (typeof wallets === 'function') callback = wallets; // backwards compatibility
-        request({
-        url: `${base}wallets`,
-        headers: {
-          'Authorization': `Bearer ${Coinfield.options.APIKEY}`
-        },
-        rejectUnauthorized: false
-      },
-      function (error, response, body) {
-
-        let obj = JSON.parse(body);
-        if(typeof wallets === 'function'){
-          callback(obj)
-        }
-        else if(typeof wallets === 'string'){
-          let result = obj.wallets.find(function(walletObj){ return walletObj.currency === wallets.toLowerCase()});
-          callback(result);
-        }
-        else if(Array.isArray(wallets)){
-          let result = [];
-          wallets.forEach(wallet=>{
-            result.push(obj.wallets.find(function(walletObj){ return walletObj.currency === wallet.toLowerCase()}));
-          })
-          callback(result);
-        }
-      });
-      },
-
-      /**
-       * Get trading, withdrawal and deposit fees for your account for different currency and markets.
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      fees: function(callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Fees");
-        if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
-        request({
-        url: `${base}fees`,
-        headers: {
-          'Authorization': `Bearer ${Coinfield.options.APIKEY}`
-        },
-        rejectUnauthorized: false
-      },
-      function (error, response, body) {
-        callback(JSON.parse(body));
-      });
-      },
-
-      /**
-       * Place a new order
-       * @param {Object[]} params - The object of parameters required to place an order
-       * @param {string} params[].market -Market in which to place an order
-       * @param {string} options[].type - «bid» if you want to create buy order or «ask» if you want to create sell order
-       * @param {string} options[].strategy - The strategy which defines how to match and execute orders. limit|market|stop_limit
-       * @param {string} options[].volume - The amount you are willing to buy or sell
-       * @param {string} options[].price - The price for each unit
-       * @param {string} options[].funds - The amount of money you are willing to spend for purchase. Applicable only to bid market orders. The system will automatically calculate the volume based on the current exchange rates and the value of parameter.
-       * @param {string} options[].stop_price - If the strategy is "stop_limit", this value is the price at which stop limit order will be triggered.
-       * @param {string} options[].expiry - The time at which order cancellation will be automatically triggered. Applicable only to limit or stop limit orders.
-       * @param {string} options[].immediate - If set to «true», limit order will be fully filled immediately or canceled if not possible to fill fully. Applicable only to limit or stop limit orders.
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      placeorder: function(params, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Place Order");
-        if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
-        request({
-        url: `${base}order`,
-        headers: {
-          'Authorization': `Bearer ${Coinfield.options.APIKEY}`
-        },
-        rejectUnauthorized: false,
-        method: 'POST',
-        form: params
-      },
-      function (error, response, body) {
-        callback(JSON.parse(body));
-      });
-      },
-
-      /**
-       * Get order
-       * @param {string|number} orderid  - Order ID
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      getorder: function(orderid, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Get Order");
-        if(typeof orderid === 'function') throw Error("Must pass an orderID");
-        if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
-        request({
-        url: `${base}order`,
-        headers: {
-          'Authorization': `Bearer ${Coinfield.options.APIKEY}`
-        },
-        rejectUnauthorized: false
-      },
-      function (error, response, body) {
-        callback(JSON.parse(body));
-      });
-      },
-
-      /**
-       * Cancel an order
-       * @param {string} orderid  - Order ID
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      deleteorder: function(orderid, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Delete Order");
-        if(typeof orderid === "function") throw Error("Must provide a (string|int) orderid.")
-        if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
-        request({
-        url: `${base}order/${orderid}`,
-        headers: {
-          'Authorization': `Bearer ${Coinfield.options.APIKEY}`
-        },
-        rejectUnauthorized: false,
-        method: "DELETE"
-      },
-      function (error, response, body) {
-        callback(JSON.parse(body));
-      });
-      },
-
-      /**
-       * Get your orders for a specific market
-       * @param {string} market  - Market identifier in the format of "basequote" e.g. btcbch or btcxrp.
-       * @param {Object[]} options - The object of optional parameters to be passed
-       * @param {number} options[].limit - Limit the number of returned trades - Default value: 50
-       * @param {string} options[].state - Filter order by state, defaults to wait (active orders)
-       * @param {number} options[].page - Page number of paginated results
-       * @param {string} options[].order_by - If set, trades will be sorted in specific order (desc, asc) - Default value: desc
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      getorders: function(market, options=null, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Get Orders for Market");
-        if(typeof market === "function") throw Error("Must provide a (string) MarketID, ex: 'btcxrp'")
-        if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
-        if(typeof options === "function") callback = options;
-        request({
-        url: `${base}orders/${market}?${('limit' in options) ? 'limit='+options.limit+'&' : ''}${('state' in options) ? 'state='+options.state+'&' : ''}${('page' in options) ? 'page='+options.page+'&' : ''}${('order_by' in options) ? 'order_by='+options.order_by : ''}`,
-        headers: {
-          'Authorization': `Bearer ${Coinfield.options.APIKEY}`
-        },
-        rejectUnauthorized: false
-      },
-      function (error, response, body) {
-        callback(JSON.parse(body));
-      });
-      },
-
-      /**
-       * Cancel all your orders for a specific market and specific side (bid|ask)
-       * @param {string} market  - Market identifier in the format of "basequote" e.g. btcbch or btcxrp.
-       * @param {string} side  - Side of the orders (ask|bid).
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      deleteorders: function(market, side, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Delete Orders for Market & Side");
-        if(typeof market === "function") throw Error("Must provide a (string) market identifier e.g. btcxrp")
-        if(typeof side === "function") throw Error("Must provide a (string) side of orders to delete e.g. bid")
-        if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
-        request({
-        url: `${base}orders/${market}/side/${side}`,
-        headers: {
-          'Authorization': `Bearer ${Coinfield.options.APIKEY}`
-        },
-        rejectUnauthorized: false,
-        method: "DELETE"
-      },
-      function (error, response, body) {
-        callback(JSON.parse(body));
-      });
-      },
-
-      /**
-       * Get your trade history
-       * @param {string} market  - Market identifier in the format of "basequote" e.g. btcbch or btcxrp.
-       * @param {Object[]} options - The object of optional parameters to be passed
-       * @param {number} options[].limit - Limit the number of returned trades - Default value: 50
-       * @param {number|string} options[].timestamp - An integer represents the seconds elapsed since Unix epoch. If set, only trades executed before the time will be returned
-       * @param {number|string} options[].from - Trade id. If set, only trades done after the specified trade id will be returned
-       * @param {number|string} options[].to - Trade id. If set, only trades done before the specified trade id will be returned
-       * @param {string} options[].order_by - If set, trades will be sorted in specific order (desc, asc) - Default value: desc
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      tradehistory: function(market, options = null, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Trade History");
-        if(typeof market === "function") throw Error("Must provide a (string) market identifier e.g. btcxrp")
-        if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
-        if(typeof options === "function") callback = options;
-        request({
-        url: `${base}trade-history/${market}?${('limit' in options) ? 'limit='+options.limit+'&' : ''}${('timestamp' in options) ? 'timestamp='+options.timestamp+'&' : ''}${('from' in options) ? 'from='+options.from+'&' : ''}${('to' in options) ? 'to='+options.to+'&' : ''}${('order_by' in options) ? 'order_by='+options.order_by : ''}`,
-        headers: {
-          'Authorization': `Bearer ${Coinfield.options.APIKEY}`
-        },
-        rejectUnauthorized: false
-      },
-      function (error, response, body) {
-        callback(JSON.parse(body));
-      });
-      },
-
-      /**
-       * Get wallet address for cryptocurrencies
-       * @param {string} currency  - Currency (Cryptocurrency only) identifier e.g. btc or xrp.
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      depositaddresses: function(currency, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Deposit Addresses");
-        if(typeof currency === "function") throw Error("Must provide a valid currency identifier e.g.: btc");
-        if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
-        request({
-        url: `${base}deposit-addresses/${currency}`,
-        headers: {
-          'Authorization': `Bearer ${Coinfield.options.APIKEY}`
-        },
-        rejectUnauthorized: false
-      },
-      function (error, response, body) {
-        callback(JSON.parse(body));
-      });
-      },
-
-      /**
-       * Get your deposit history for cryptocurrencies or fiat
-       * @param {Object[]} options - The object of optional parameters to be passed
-       * @param {string} options[].currency - Currency identifier e.g. btc or cad. If not set all currencies will be returned
-       * @param {number} options[].limit - Limit the number of returned deposits - Default value: 50
-       * @param {string} options[].state - Filter results based on the state of the deposit. The following states for deposits are available: submitted, canceled, rejected, accepted
-       * @param {string} options[].txid - Filter based on a specific transaction ID on the Blockchain. If this value is set, limit and state fields are ignored.
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      deposits: function(options, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Deposits");
-        if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
-        if(typeof options === "function") callback = options;
-        request({
-        url: `${base}deposits/${('currency' in options) ? options.currency+'?' : '?'}${('limit' in options) ? 'limit='+options.limit+'&' : ''}${('state' in options) ? 'state='+options.state+'&' : ''}${('txid' in options) ? 'txid='+options.txid : ''}`,
-        headers: {
-          'Authorization': `Bearer ${Coinfield.options.APIKEY}`
-        },
-        rejectUnauthorized: false
-      },
-      function (error, response, body) {
-        callback(JSON.parse(body));
-      });
-      },
-
-      /**
-       * Get withdrawal destination addresses for different currencies.
-       * @param {string}currency - The currency for which you want withdrawal destination addresses
-       * @param {Object[]} options - The object of optional parameters to be passed
-       * @param {number} options[].per_page - Number of results per page
-       * @param {string} options[].page - Page number
-       * @param {string} options[].method - Filter by method, the following methods are available: wire, crypto
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      withdrawaladdresses: function(currency, options, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Withdrawal Addresses");
-        if(typeof currency === "function") throw Error("Must provide a valid (string) currency argument e.g.: btc")
-        if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
-        if(typeof options === "function") callback = options;
-        request({
-        url: `${base}withdrawal-addresses/${currency}?${('per_page' in options) ? 'per_page='+options.per_page+'&' : ''}${('page' in options) ? 'page='+options.page+'&' : ''}${('method' in options) ? 'method='+options.method : ''}`,
-        headers: {
-          'Authorization': `Bearer ${Coinfield.options.APIKEY}`
-        },
-        rejectUnauthorized: false
-      },
-      function (error, response, body) {
-        callback(JSON.parse(body));
-      });
-      },
-
-      /**
-       * List all withdrawals
-       * @param {string} currency  - Currency (Cryptocurrency only) identifier e.g. btc or xrp.
-       * @param {Object[]} options - The object of optional parameters to be passed
-       * @param {number} options[].limit - Limit the number of returned results.
-       * @param {number} options[].page - Page number.
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      withdrawals: function(currency, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Withdrawals");
-        if(typeof currency === "function") throw Error("Must provide a valid currency identifier e.g.: btc");
-        if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
-        request({
-        url: `${base}withdrawals/${currency}?${('limit' in options) ? 'limit='+options.limit+'&' : ''}${('page' in options) ? 'page='+options.page : ''}`,
-        headers: {
-          'Authorization': `Bearer ${Coinfield.options.APIKEY}`
-        },
-        rejectUnauthorized: false
-      },
-      function (error, response, body) {
-        callback(JSON.parse(body));
-      });
-      },
-
-      /**
-       * Submit a new withdrawal request for fiat or crypto
-       * @param {Object[]} params - The object of parameters required to place an order
-       * @param {string} params[].currency - Currency (Cryptocurrency only) identifier e.g. btc or xrp.
-       * @param {string} params[].amount - Amount to be withdrawn
-       * @param {string} params[].destination - Destination ID. Use withdrawal-destinations to create a new destination
-       * @param {string} params[].otp - If OTP/2FA (Two Factor Authentication) is turned on, this value is required
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      makewithdrawal: function(params, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Make Withdrawal");
-        if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
-        request({
-        url: `${base}withdrawals/${params.currency}`,
-        headers: {
-          'Authorization': `Bearer ${Coinfield.options.APIKEY}`
-        },
-        rejectUnauthorized: false,
-        method: 'POST',
-        form: params
-      },
-      function (error, response, body) {
-        callback(JSON.parse(body));
-      });
-      },
-
-      /**
-       * Get all price alerts or by price-alert ID.
-       * @param {Object[]} params - The object of parameters required to get/create/delete price-alerts
-       * @param {string} params.action - get, create, update or delete
-       * @param {string} params.alertID - Price Alert ID
-       * @param {string} params.market - Market identifier in the format of "basequote" e.g. btcbch or btcxrp.
-       * @param {string} params.price - Threshold
-       * @param {string} params.trend - «up» or «down».
-       * @param {boolean} params.active - «true» or «false».
-       * @param {function} callback - the callback function
-       * @return {undefined}
-       */
-      pricealerts: function(params = null, callback = false){
-        if(Coinfield.options.verbose===true) console.log("Requested Price Alerts");
-        if(typeof params !== 'object') throw Error("Must pass parameters object");
-        if(!Coinfield.options.APIKEY) throw Error("Invalid API Key");
-        if(typeof alertID === 'function') callback = alertID;
-        let requestParams = {
-          headers: {
-            'Authorization': `Bearer ${Coinfield.options.APIKEY}`
-          },
-          rejectUnauthorized: false
-        };
-        if(params.action === 'get'){
-          requestParams.url = `${base}price-alerts${(typeof params.alertID === 'string' || typeof params.alertID === 'number') ? '/'+params.alertID : ''}`;
-        }
-        if(params.action === 'create'){
-          requestParams.url = `${base}price-alerts`;
-          requestParams.method = 'POST';
-          requestParams.form = params;
-        }
-        if(params.action === 'update'){
-          requestParams.url = `${base}price-alerts/${params.alertID}`;
-          requestParams.method = 'PUT';
-          requestParams.form = {price:params.price,trend:params.trend,active:params.active};
-        }
-        if(params.action === 'delete'){
-          requestParams.url = `${base}price-alerts/${params.alertID}`;
-          requestParams.method = 'DELETE';
-        }
-        request(requestParams, function (error, response, body) {
-          callback(JSON.parse(body));
-        });
-      }
-
-    }
- }
- module.exports = api;

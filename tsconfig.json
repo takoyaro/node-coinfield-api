@@ -1,10 +1,12 @@
 {
     "compilerOptions": {
-      "outDir": "./dist",
-      "allowJs": true,
-      "target": "ES2020",
-      "moduleResolution":"Node",
-      "allowSyntheticDefaultImports": true
+        "module": "commonjs",
+        "esModuleInterop": true,
+        "target": "es2020",
+        "moduleResolution": "node",
+        "sourceMap": true,
+        "outDir": "dist",
+        "rootDir": "src"
     },
-    "include": ["./src"]
-}
+    "lib": ["es2020"]
+  }
