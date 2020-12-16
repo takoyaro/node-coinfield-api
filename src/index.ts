@@ -77,7 +77,7 @@ export class Coinfield{
         return res;
       }
       else{
-        console.error(`There was an error fetching data for ${req.url} | Private Request?: ${isPrivate ?? false}`);
+        console.error(`There was an error fetching data for ${req.url} | Private Request?: ${isPrivate || false}`);
         console.error(`Request Options:`);
         console.error(options);
         let error = await req.json();
@@ -216,7 +216,7 @@ export class Coinfield{
       if(![50,100,150,200,250].includes(limit)){
         throw Error("Period parameter must be one of these values 50,100,150,200,250 as per Coinfield API");
       }
-      let endpoint = `trades/${market}?limit=${limit ?? 50}&order_by=${orderby ?? 'desc'}`;
+      let endpoint = `trades/${market}?limit=${limit || 50}&order_by=${orderby || 'desc'}`;
       if(from){endpoint += `&from=${from}`;}
       if(to){endpoint += `&to=${to}`;}
       const raw:trades = await this.getEndpointData(endpoint);
