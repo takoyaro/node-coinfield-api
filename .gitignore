@@ -3,4 +3,5 @@ node_modules
 yarn.lock
 package-lock.json
 node-coinfield-api.7z
+node-coinfield-api.zip
 dist
